@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 app = FastAPI(
     title="Release Tracker API",
@@ -7,19 +8,30 @@ app = FastAPI(
 )
 
 
-@app.get("/projects")
-def list_projects() -> list[dict]:
-    return [
-        {
-            "id": 1,
-            "name": "Project A",
-        },
-        {
-            "id": 2,
-            "name": "Project B",
-        },
-        {
-            "id": 3,
-            "name": "Project C",
-        },
-    ]
+class ProjectRead(BaseModel):
+    id: int
+    name: str
+    slug: str
+
+
+mock_projects = [
+    ProjectRead(id=1, name="Project A", slug="project-a"),
+    ProjectRead(id=2, name="Project B", slug="project-b"),
+    ProjectRead(id=3, name="Project C", slug="project-c"),
+]
+
+
+@app.get("/projects/{project_id}", response_model=ProjectRead | None)
+def get_project_by_id(project_id: int) -> ProjectRead | None:
+    # In a real application, you would fetch the project from a database
+    for project in mock_projects:
+        if project.id == project_id:
+            return project
+    return None
+
+
+@app.get("/projects", response_model=list[ProjectRead])
+def list_projects(name: str | None = None) -> list[ProjectRead]:
+    if name:
+        return [project for project in mock_projects if project.name == name]
+    return mock_projects
