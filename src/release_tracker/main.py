@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 
 app = FastAPI(
@@ -25,9 +25,18 @@ mock_projects = [
 def get_project_by_id(project_id: int) -> ProjectRead | None:
     # In a real application, you would fetch the project from a database
     for project in mock_projects:
+        if not project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found",
+            )
+
         if project.id == project_id:
             return project
-    return None
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+    )
 
 
 @app.get("/projects", response_model=list[ProjectRead])
