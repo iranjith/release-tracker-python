@@ -1,5 +1,12 @@
-from fastapi import FastAPI, HTTPException, status
+from typing import Annotated
+
+from fastapi import Depends, FastAPI, HTTPException, status
 from pydantic import BaseModel
+from sqlmodel import Session, select
+
+from release_tracker.database import get_session
+
+from .models import Project, ProjectRead
 
 app = FastAPI(
     title="Release Tracker API",
@@ -7,40 +14,22 @@ app = FastAPI(
     version="1.0.0",
 )
 
-
-class ProjectRead(BaseModel):
-    id: int
-    name: str
-    slug: str
-
-
-mock_projects = [
-    ProjectRead(id=1, name="Project A", slug="project-a"),
-    ProjectRead(id=2, name="Project B", slug="project-b"),
-    ProjectRead(id=3, name="Project C", slug="project-c"),
-]
+SessionDep = Annotated[Session, Depends(get_session)]
 
 
 @app.get("/projects/{project_id}", response_model=ProjectRead | None)
-def get_project_by_id(project_id: int) -> ProjectRead | None:
-    # In a real application, you would fetch the project from a database
-    for project in mock_projects:
-        if not project:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Project not found",
-            )
-
-        if project.id == project_id:
-            return project
-
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
-    )
+def get_project_by_id(project_id: int, session: SessionDep):
+    project = session.get(Project, project_id)
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
+        )
+    return project
 
 
 @app.get("/projects", response_model=list[ProjectRead])
-def list_projects(name: str | None = None) -> list[ProjectRead]:
-    if name:
-        return [project for project in mock_projects if project.name == name]
-    return mock_projects
+def list_projects(session: SessionDep):
+    statement = select(Project).order_by(Project.name)
+    projects = session.exec(statement).all()
+    return list(projects)
