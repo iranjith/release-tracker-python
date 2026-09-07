@@ -1,13 +1,9 @@
-from typing import Annotated
-
-from fastapi import Depends, FastAPI, HTTPException, Response, status
-from pydantic import BaseModel
-from sqlmodel import Session, select
+from fastapi import FastAPI, HTTPException, Response, status
 
 from release_tracker import crud
-from release_tracker.database import get_session
 
-from .models import Project, ProjectCreate, ProjectRead, ProjectUpdate
+from .dependencies import SessionDep
+from .models import ProjectCreate, ProjectRead, ProjectUpdate
 
 app = FastAPI(
     title="Release Tracker API",
@@ -19,9 +15,6 @@ app = FastAPI(
 @app.get("/")
 def root():
     return {"message": "Welcome to the Release Tracker API!"}
-
-
-SessionDep = Annotated[Session, Depends(get_session)]
 
 
 @app.get("/projects/{project_id}", response_model=ProjectRead | None)
