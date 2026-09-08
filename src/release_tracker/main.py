@@ -1,8 +1,8 @@
-from fastapi import FastAPI, HTTPException, Response, status
+from fastapi import FastAPI, Response, status
 
 from release_tracker import crud
 
-from .dependencies import SessionDep
+from .dependencies import ProjectDep, SessionDep
 from .models import ProjectCreate, ProjectRead, ProjectUpdate
 
 app = FastAPI(
@@ -18,8 +18,7 @@ def root():
 
 
 @app.get("/projects/{project_id}", response_model=ProjectRead | None)
-def get_project(project_id: int, session: SessionDep):
-    project = crud.get_project(session, project_id)
+def get_project(project: ProjectDep):
     return project
 
 
@@ -37,25 +36,13 @@ def create_project(project_create: ProjectCreate, session: SessionDep):
 
 
 @app.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_project(project_id: int, session: SessionDep):
-    project = crud.get_project(session, project_id)
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
-        )
+def delete_project(project: ProjectDep, session: SessionDep):
     crud.delete_project(session, project)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.patch("/projects/{project_id}", response_model=ProjectRead)
 def update_project(
-    project_id: int, project_update: ProjectUpdate, session: SessionDep
+    project: ProjectDep, project_update: ProjectUpdate, session: SessionDep
 ):
-    project = crud.get_project(session, project_id)
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
-        )
     return crud.update_project(session, project, project_update)
