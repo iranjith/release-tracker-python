@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from typing import Annotated
 
@@ -7,21 +7,22 @@ from sqlalchemy import Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 
+def utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
 class TaskStatus(StrEnum):
-    TODO = "TODO"
-    IN_PROGRESS = "IN_PROGRESS"
-    DONE = "DONE"
+    planned = "planned"
+    in_progress = "in_progress"
+    blocked = "blocked"
+    done = "done"
 
 
 class TaskPriority(StrEnum):
-    LOW = "LOW"
-    MEDIUM = "MEDIUM"
-    HIGH = "HIGH"
-    CRITICAL = "CRITICAL"
-
-
-def utc_now() -> datetime:
-    return datetime.now(UTC)
+    low = "low"
+    medium = "medium"
+    high = "high"
+    urgent = "urgent"
 
 
 ProjectName = Annotated[
@@ -29,30 +30,13 @@ ProjectName = Annotated[
     StringConstraints(strip_whitespace=True, min_length=2),
 ]
 
-TaskName = Annotated[
+TaskTitle = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=2),
 ]
 
 
-class TaskBase(SQLModel):
-    name: TaskName
-    description: str | None = None
-    status: TaskStatus = TaskStatus.TODO
-    priority: TaskPriority = TaskPriority.MEDIUM
-    due_date: datetime | None = None
-
-
-class Task(TaskBase, table=True):
-    __tablename__ = "tasks"
-
-    id: int | None = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="projects.id")
-    created_at: datetime = Field(
-        default_factory=utc_now,
-        sa_column=Column(DateTime(timezone=True), nullable=False),
-    )
-    project: Project = Relationship(back_populates="tasks")
+# --- Project ---
 
 
 class ProjectBase(SQLModel):
@@ -66,7 +50,7 @@ class Project(ProjectBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     slug: str = Field(unique=True)
 
-    tasks: list[Task] = Relationship(back_populates="project")
+    tasks: list["Task"] = Relationship(back_populates="project")
 
     created_at: datetime = Field(
         default_factory=utc_now,
@@ -78,8 +62,8 @@ class ProjectCreate(ProjectBase):
     pass
 
 
-class ProjectUpdate(ProjectBase):
-    name: ProjectName = Field(default=None)
+class ProjectUpdate(SQLModel):
+    name: ProjectName | None = None
     description: str | None = None
 
 
@@ -87,3 +71,40 @@ class ProjectRead(ProjectBase):
     id: int
     slug: str
     created_at: datetime
+
+
+# --- Task ---
+
+
+class TaskBase(SQLModel):
+    title: TaskTitle
+    details: str | None = None
+    status: TaskStatus = TaskStatus.planned
+    priority: TaskPriority = TaskPriority.medium
+    due_date: date | None = None
+
+
+class Task(TaskBase, table=True):
+    __tablename__ = "tasks"
+
+    id: int | None = Field(default=None, primary_key=True)
+    project_id: int = Field(foreign_key="projects.id", index=True)
+
+    project: Project = Relationship(back_populates="tasks")
+
+
+class TaskCreate(TaskBase):
+    pass
+
+
+class TaskUpdate(SQLModel):
+    title: TaskTitle | None = None
+    details: str | None = None
+    status: TaskStatus | None = None
+    priority: TaskPriority | None = None
+    due_date: date | None = None
+
+
+class TaskRead(TaskBase):
+    id: int
+    project_id: int
